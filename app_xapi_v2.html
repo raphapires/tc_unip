@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Simulador SaaS - Fatores Humanos</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    text-align: center;
+}
+
+.container {
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+}
+
+.card {
+    background: #1e293b;
+    padding: 25px;
+    border-radius: 10px;
+}
+
+input {
+    padding: 10px;
+    width: 60%;
+    margin-bottom: 10px;
+}
+
+button {
+    padding: 10px;
+    margin: 5px;
+    border: none;
+    border-radius: 6px;
+    background: #3b82f6;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2563eb;
+}
+
+.dashboard {
+    margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <div id="app" class="card"></div>
+</div>
+
+<script>
+
+let usuario = "";
+let etapa = 0;
+
+let resultados = {
+    comunicacao: 0,
+    motivacao: 0,
+    carga: 0
+};
+
+const cenarios = [
+{
+    tipo: "comunicacao",
+    titulo: "Comunicação Deficiente",
+    pergunta: "A equipe não está alinhada. O que você faz?",
+    opcoes: [
+        { texto: "Marcar reunião", pontos: 2 },
+        { texto: "Trabalhar sozinho", pontos: 0 },
+        { texto: "Ignorar feedback", pontos: -1 }
+    ]
+},
+{
+    tipo: "motivacao",
+    titulo: "Baixa Motivação",
+    pergunta: "Equipe desmotivada. Sua ação?",
+    opcoes: [
+        { texto: "Motivar equipe", pontos: 2 },
+        { texto: "Pressionar prazo", pontos: 0 },
+        { texto: "Ignorar situação", pontos: -1 }
+    ]
+},
+{
+    tipo: "carga",
+    titulo: "Sobrecarga Cognitiva",
+    pergunta: "Você está sobrecarregado. O que faz?",
+    opcoes: [
+        { texto: "Priorizar tarefas", pontos: 2 },
+        { texto: "Fazer tudo", pontos: 0 },
+        { texto: "Ignorar limites", pontos: -1 }
+    ]
+},
+{
+    tipo: "experiencia",
+    titulo: "Falta de Experiência",
+    pergunta: "A equipe tem pouca experiência em OA. Sua decisão?",
+    opcoes: [
+        { texto: "Investir em treinamento", pontos: 2 },
+        { texto: "Delegar sem supervisão", pontos:0 },
+        { texto: "Reduzir escopo", pontos: -1 }
+    ]
+},
+{
+    tipo: "ideal",
+    titulo: "Ambiente Organizacional Ideal",
+    pergunta: "O ambiente está ideal. Como você mantém?",
+    opcoes: [
+        { texto: "Manter comunicação e motivação", pontos: 2 },
+        { texto: "Manter equilíbrio", pontos: 2 },
+        { texto: "Não alterar", pontos: 0 }
+    ]
+}
+
+
+];
+
+function iniciar() {
+    document.getElementById("app").innerHTML = `
+        <h2>Bem-vindo ao Simulador</h2>
+        <input id="nome" placeholder="Digite seu nome"/>
+        <br>
+        <button onclick="login()">Entrar</button>
+    `;
+}
+
+function login() {
+    usuario = document.getElementById("nome").value;
+    if(!usuario) return alert("Digite seu nome");
+    etapa = 0;
+    resultados = { comunicacao:0, motivacao:0, carga:0, experiencia:0, ideal:0}; //add experiencia = 0, ideal = 0
+    render();
+}
+
+function render() {
+
+    if(etapa >= cenarios.length){
+        salvarDados();
+        mostrarDashboard();
+        return;
+    }
+
+    const c = cenarios[etapa];
+
+    let html = `
+        <h3>${c.titulo}</h3>
+        <p>${c.pergunta}</p>
+    `;
+
+    c.opcoes.forEach((op, i) => {
+        html += `<button onclick="responder(${i})">${op.texto}</button>`;
+    });
+
+    document.getElementById("app").innerHTML = html;
+}
+
+function responder(index){
+    const c = cenarios[etapa];
+    const escolha = c.opcoes[index];
+
+    resultados[c.tipo] += escolha.pontos;
+
+    etapa++;
+    render();
+}
+
+function salvarDados(){
+
+    const dados = JSON.parse(localStorage.getItem("resultados")) || [];
+
+    dados.push({
+        usuario,
+        resultados,
+        data: new Date().toLocaleString()
+    });
+
+    localStorage.setItem("resultados", JSON.stringify(dados));
+}
+
+function mostrarDashboard(){
+
+    document.getElementById("app").innerHTML = `
+        <h2>Dashboard</h2>
+        <canvas id="grafico"></canvas>
+
+        <div class="dashboard">
+            <h3>Histórico</h3>
+            <div id="historico"></div>
+        </div>
+
+        <button onclick="reiniciar()">Nova Simulação</button>
+    `;
+
+    const ctx = document.getElementById('grafico');
+
+    // new Chart(ctx, {
+    //     type: 'bar',
+    //     data: {
+    //         labels: ["Comunicação","Motivação","Carga"],
+    //         datasets: [{
+    //             label: "Pontuação",
+    //             data: [
+    //                 resultados.comunicacao,
+    //                 resultados.motivacao,
+    //                 resultados.carga
+    //             ]
+    //         }]
+    //     }
+    // });
+    const totais = calcularTotaisHistorico();
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ["Comunicação","Motivação","Carga","Ideal", "Experiência"],
+            datasets: [{
+                label: "Pontuação Acumulada",
+                data: [
+                    totais.comunicacao,
+                    totais.motivacao,
+                    totais.carga,
+                    totais.experiencia,
+                    totais.ideal
+                    
+                ]
+            }]
+        }
+    });
+
+
+
+    carregarHistorico();
+}
+
+
+
+function calcularTotaisHistorico() {
+
+    const dados = JSON.parse(localStorage.getItem("resultados")) || [];
+
+    let totais = {
+        comunicacao: 0,
+        motivacao: 0,
+        carga: 0
+    };
+
+    dados.forEach(d => {
+        totais.comunicacao += d.resultados.comunicacao;
+        totais.motivacao += d.resultados.motivacao;
+        totais.carga += d.resultados.carga;
+        totais.experiencia += d.resultados.experiencia;
+        totais.ideal += d.resultados.ideal;
+        
+    });
+
+
+    // const totalUsuarios = dados.length || 1;
+
+    // const medias = {
+    //     comunicacao: totais.comunicacao / totalUsuarios,
+    //     motivacao: totais.motivacao / totalUsuarios,
+    //     carga: totais.carga / totalUsuarios
+    // };
+
+
+
+    return totais;
+}
+
+
+
+function carregarHistorico(){
+
+    const dados = JSON.parse(localStorage.getItem("resultados")) || [];
+
+    let html = "";
+
+    dados.reverse().forEach(d => {
+        html += `
+            <p>
+                <strong>${d.usuario}</strong> - ${d.data}<br>
+                Comunicação: ${d.resultados.comunicacao} |
+                Motivação: ${d.resultados.motivacao} |
+                Carga: ${d.resultados.carga} |
+                Experiência: ${d.resultados.experiencia} |
+                Ideal: ${d.resultados.ideal}
+            </p>
+        `;
+    });
+
+    document.getElementById("historico").innerHTML = html;
+}
+
+function reiniciar(){
+    iniciar();
+}
+
+iniciar();
+
+</script>
+
+</body>
+</html>
